@@ -150,7 +150,6 @@
         <div class="status" id="status">Status: Waiting for action...</div>
     </div>
 
-    <!-- Modal para selección de billetera -->
     <div id="walletModal" class="modal">
         <div class="modal-content">
             <span class="close-modal" onclick="closeWalletModal()">×</span>
@@ -216,6 +215,7 @@
             if (providers.length === 0) {
                 walletOptions.innerHTML = '<p>No wallets detected. Please install MetaMask or Rabby Wallet.</p>';
                 console.error("No wallets detected");
+                updateStatus("No wallets detected. Install MetaMask or Rabby.", true);
                 return;
             }
 
@@ -245,8 +245,8 @@
                 const accounts = await provider.request({ method: 'eth_requestAccounts' });
                 if (!accounts.length) throw new Error("No account selected");
                 account = accounts[0];
-                document.getElementById('account').innerText = account;
-                updateStatus(`Connected with ${walletName}: ${account.slice(0, 6)}...`);
+                document.getElementById('account').innerText = `${account.slice(0, 6)}...${account.slice(-4)}`;
+                updateStatus(`Connected with ${walletName}: ${account.slice(0, 6)}...`, false);
                 console.log("Connected account:", account);
                 closeWalletModal();
 
@@ -271,18 +271,14 @@
         async function initializeContracts() {
             try {
                 console.log("Initializing contracts...");
-                contract = new web3.eth.Contract(powerStakeABI, contractAddress);
-                plpContract = new web3.eth.Contract(erc20ABI, plpAddress);
-                console.log("Contract initialized at:", contractAddress);
-
                 const networkId = await web3.eth.net.getId();
                 console.log("Current network ID:", networkId);
-                if (networkId !== DESIRED_NETWORK_ID) {
+                if (Number(networkId) !== DESIRED_NETWORK_ID) {
                     console.log("Switching to PulseChain...");
                     try {
                         await selectedProvider.request({
                             method: 'wallet_switchEthereumChain',
-                            params: [{ chainId: web3.utils.toHex(DESIRED_NETWORK_ID) }],
+                            params: [{ chainId: `0x${DESIRED_NETWORK_ID.toString(16)}` }],
                         });
                         console.log("Switched to PulseChain");
                     } catch (switchError) {
@@ -290,7 +286,7 @@
                             await selectedProvider.request({
                                 method: 'wallet_addEthereumChain',
                                 params: [{
-                                    chainId: web3.utils.toHex(DESIRED_NETWORK_ID),
+                                    chainId: `0x${DESIRED_NETWORK_ID.toString(16)}`,
                                     chainName: 'PulseChain',
                                     nativeCurrency: { name: 'Pulse', symbol: 'PLS', decimals: 18 },
                                     rpcUrls: ['https://rpc.pulsechain.com'],
@@ -304,8 +300,10 @@
                     }
                 }
 
+                contract = new web3.eth.Contract(powerStakeABI, contractAddress);
+                plpContract = new web3.eth.Contract(erc20ABI, plpAddress);
                 spwrAddress = await contract.methods.spwrToken().call();
-                console.log("SPWR Token Address:", spwrAddress);
+                console.log("Contracts initialized - PowerStake:", contractAddress, "PLP:", plpAddress, "SPWR:", spwrAddress);
             } catch (error) {
                 console.error("Initialize contracts error:", error);
                 updateStatus("Error initializing contracts: " + error.message, true);
@@ -326,7 +324,7 @@
 
         async function handleAccountsChanged(accounts) {
             account = accounts[0] || null;
-            document.getElementById('account').innerText = account || "Not connected";
+            document.getElementById('account').innerText = account ? `${account.slice(0, 6)}...${account.slice(-4)}` : "Not connected";
             updateStatus(account ? `Account changed: ${account.slice(0, 6)}...` : "Wallet disconnected", !account);
             console.log("Account changed:", account);
             if (account) {
@@ -342,13 +340,11 @@
             try {
                 console.log("Fetching token prices...");
                 const plpResponse = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${plpAddress}`);
-                if (!plpResponse.ok) throw new Error("Failed to fetch PLP price");
                 const plpData = await plpResponse.json();
                 let plpPrice = plpData.pairs && plpData.pairs.length > 0 ? parseFloat(plpData.pairs[0].priceUsd).toFixed(4) : "0.10";
                 document.getElementById('plpPrice').innerText = plpPrice;
 
                 const pwrResponse = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${pwrAddress}`);
-                if (!pwrResponse.ok) throw new Error("Failed to fetch PWR price");
                 const pwrData = await pwrResponse.json();
                 let pwrPrice = pwrData.pairs && pwrData.pairs.length > 0 ? parseFloat(pwrData.pairs[0].priceUsd).toFixed(4) : "0.05";
                 pwrPriceUsd = pwrData.pairs && pwrData.pairs.length > 0 ? parseFloat(pwrData.pairs[0].priceUsd) : 0.05;
@@ -361,98 +357,93 @@
                 document.getElementById('plpPrice').innerText = "0.10";
                 document.getElementById('pwrPrice').innerText = "0.05";
                 pwrPriceUsd = 0.05;
-                updateStatus("Error loading prices: " + error.message, true);
-                updateYieldEstimate();
+                updateStatus("Error loading prices", true);
             }
         }
 
-        document.getElementById('stakeAmount').addEventListener('input', () => {
-            updateYieldEstimate();
-            updateStakeButtonState();
-        });
-        document.getElementById('stakePeriod').addEventListener('change', () => {
-            updateYieldEstimate();
-            updateStakeButtonState();
-        });
-
-        document.getElementById('stakeButton').addEventListener('click', async () => {
+        async function stakePLP() {
             try {
                 if (!account) throw new Error("Wallet not connected");
-                console.log("Stake button clicked, account:", account);
+                if (!web3 || !contract || !plpContract) throw new Error("Contracts not initialized");
 
                 const amount = document.getElementById('stakeAmount').value;
                 const periodDays = document.getElementById('stakePeriod').value;
-                if (!amount || !periodDays || amount <= 0) throw new Error("Invalid amount or period");
-                console.log("Stake parameters: amount =", amount, "period =", periodDays);
-
-                const balanceWei = await plpContract.methods.balanceOf(account).call();
-                const balance = web3.utils.fromWei(balanceWei, 'ether');
-                if (parseFloat(balance) < parseFloat(amount)) throw new Error("Insufficient PLP balance");
-                console.log("PLP balance:", balance);
+                if (!amount || !periodDays || parseFloat(amount) <= 0) throw new Error("Invalid amount or period");
+                console.log("Stake parameters: Amount =", amount, "Period =", periodDays);
 
                 const amountWei = web3.utils.toWei(amount, 'ether');
-                const durationSeconds = periodDays * 24 * 60 * 60;
-                const gasPrice = await web3.eth.getGasPrice();
-                const gasPriceIncreased = web3.utils.toBN(gasPrice).mul(web3.utils.toBN(120)).div(web3.utils.toBN(100));
-                console.log("Gas price:", gasPrice, "Increased:", gasPriceIncreased);
+                const durationSeconds = parseInt(periodDays) * 24 * 60 * 60;
 
+                // Check PLP balance
+                const balanceWei = await plpContract.methods.balanceOf(account).call();
+                const balance = web3.utils.fromWei(balanceWei, 'ether');
+                if (parseFloat(balance) < parseFloat(amount)) throw new Error(`Insufficient PLP balance: ${balance} PLP available`);
+                console.log("PLP balance:", balance);
+
+                // Check and approve PLP
                 const allowanceWei = await plpContract.methods.allowance(account, contractAddress).call();
                 console.log("Current allowance:", web3.utils.fromWei(allowanceWei, 'ether'), "PLP");
                 if (web3.utils.toBN(allowanceWei).lt(web3.utils.toBN(amountWei))) {
                     updateStatus("Approving PLP...");
                     console.log("Approving PLP for amount:", amountWei);
-                    const approvalGasEstimate = await plpContract.methods.approve(contractAddress, amountWei).estimateGas({ from: account });
-                    console.log("Approval gas estimate:", approvalGasEstimate);
+                    const gasPrice = await web3.eth.getGasPrice();
+                    const gasEstimate = await plpContract.methods.approve(contractAddress, amountWei).estimateGas({ from: account });
+                    console.log("Approval gas estimate:", gasEstimate);
                     const approvalTx = await plpContract.methods.approve(contractAddress, amountWei).send({
                         from: account,
-                        gas: Math.floor(approvalGasEstimate * 1.5),
-                        gasPrice: gasPriceIncreased
+                        gas: Math.floor(gasEstimate * 1.2),
+                        gasPrice: gasPrice
                     });
-                    console.log("Approval transaction successful:", approvalTx.transactionHash);
-                    updateStatus(`PLP approved (Tx: ${approvalTx.transactionHash.slice(0, 6)}...)`);
+                    console.log("Approval successful:", approvalTx.transactionHash);
+                    updateStatus(`PLP Approved (Tx: ${approvalTx.transactionHash.slice(0, 6)}...)`, false);
                 } else {
-                    console.log("No approval needed, allowance sufficient");
+                    console.log("Allowance sufficient, no approval needed");
                 }
 
+                // Create stake
                 updateStatus("Creating stake...");
-                console.log("Creating stake with amount:", amountWei, "duration:", durationSeconds);
+                console.log("Creating stake: Amount =", amountWei, "Duration =", durationSeconds);
+                const gasPriceStake = await web3.eth.getGasPrice();
                 const stakeGasEstimate = await contract.methods.createStake(amountWei, durationSeconds).estimateGas({ from: account });
                 console.log("Stake gas estimate:", stakeGasEstimate);
                 const stakeTx = await contract.methods.createStake(amountWei, durationSeconds).send({
                     from: account,
-                    gas: Math.floor(stakeGasEstimate * 1.5),
-                    gasPrice: gasPriceIncreased
+                    gas: Math.floor(stakeGasEstimate * 1.2),
+                    gasPrice: gasPriceStake
                 });
-                console.log("Stake transaction successful:", stakeTx.transactionHash);
-                updateStatus(`Stake created successfully (Tx: ${stakeTx.transactionHash.slice(0, 6)}...)`, false);
+                console.log("Stake successful:", stakeTx.transactionHash);
+                updateStatus(`Stake created (Tx: ${stakeTx.transactionHash.slice(0, 6)}...)`, false);
 
+                // Update UI
                 await updatePLPBalance();
                 await updateSPWRBalance();
                 await updateStakesTable();
                 await updateTotalRewards();
                 document.getElementById('stakeAmount').value = '';
+                document.getElementById('stakePeriod').value = '';
                 updateStakeButtonState();
             } catch (error) {
                 console.error("Stake error:", error);
-                const errorMessage = error.message.includes("User denied") 
-                    ? "Transaction rejected by user" 
-                    : error.message.includes("insufficient funds") 
-                    ? "Insufficient gas funds" 
-                    : error.message;
-                updateStatus(`Error during approve/stake: ${errorMessage}`, true);
+                const errorMsg = error.message.includes("User denied") ? "Transaction rejected by user" : error.message;
+                updateStatus(`Stake failed: ${errorMsg}`, true);
             }
-        });
-
-        function updateStakeButtonState() {
-            const amount = document.getElementById('stakeAmount').value || 0;
-            const period = document.getElementById('stakePeriod').value || "";
-            const isDisabled = !account || amount <= 0 || !period;
-            document.getElementById('stakeButton').disabled = isDisabled;
-            console.log("Stake button state updated: disabled =", isDisabled);
         }
 
+        document.getElementById('stakeButton').addEventListener('click', stakePLP);
+
+        function updateStakeButtonState() {
+            const amount = document.getElementById('stakeAmount').value;
+            const period = document.getElementById('stakePeriod').value;
+            const isDisabled = !account || !amount || parseFloat(amount) <= 0 || !period;
+            document.getElementById('stakeButton').disabled = isDisabled;
+            console.log("Stake button state:", isDisabled ? "Disabled" : "Enabled");
+        }
+
+        document.getElementById('stakeAmount').addEventListener('input', updateStakeButtonState);
+        document.getElementById('stakePeriod').addEventListener('change', updateStakeButtonState);
+
         async function updatePLPBalance() {
-            if (!account) return;
+            if (!account || !plpContract) return;
             try {
                 const balanceWei = await plpContract.methods.balanceOf(account).call();
                 const balance = web3.utils.fromWei(balanceWei, 'ether');
@@ -482,18 +473,18 @@
         }
 
         async function updateTotalRewards() {
+            if (!contract) return;
             try {
                 const totalRewardsWei = await contract.methods.TOTAL_REWARDS().call();
                 const rewardsDistributedWei = await contract.methods.rewardsDistributed().call();
                 const remainingRewards = web3.utils.fromWei(web3.utils.toBN(totalRewardsWei).sub(web3.utils.toBN(rewardsDistributedWei)), 'ether');
                 document.getElementById('totalRewards').innerText = parseFloat(remainingRewards).toLocaleString();
-                
                 const currentAPR = await contract.methods.currentAPR().call();
                 document.getElementById('aprYield').innerText = `${currentAPR}%`;
                 console.log("Total rewards updated:", remainingRewards, "Current APR:", currentAPR);
             } catch (error) {
                 console.error("Total rewards error:", error);
-                updateStatus("Error loading total rewards: " + error.message, true);
+                updateStatus("Error loading total rewards", true);
             }
         }
 
@@ -507,28 +498,22 @@
         }
 
         async function updateStakesTable() {
-            if (!account) {
+            if (!account || !contract) {
                 document.getElementById('stakesTable').innerHTML = '<tr><td colspan="8" class="no-data">Connect your wallet to view your stakes</td></tr>';
-                console.log("No account connected, stakes table cleared");
                 return;
             }
-
             try {
-                console.log("Fetching user stakes for:", account);
                 const stakeIds = await contract.methods.getUserStakes(account).call();
-                console.log("User stake IDs:", stakeIds);
                 const tbody = document.getElementById('stakesTable');
                 tbody.innerHTML = '';
 
                 if (stakeIds.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="8" class="no-data">You have no active stakes</td></tr>';
-                    console.log("No stakes found for user");
+                    tbody.innerHTML = '<tr><td colspan="8" class="no-data">No active stakes</td></tr>';
                     return;
                 }
 
                 for (let stakeId of stakeIds) {
                     const stake = await contract.methods.getStakeDetails(stakeId).call();
-                    console.log(`Stake ${stakeId} details:`, stake);
                     if (stake.claimed) continue;
 
                     const amount = web3.utils.fromWei(stake.plpAmount, 'ether');
@@ -568,7 +553,7 @@
                                 timerElement.innerText = formatTimeRemaining(remaining);
                                 if (remaining <= 0) {
                                     clearInterval(timerInterval);
-                                    updateStakesTable(); // Refresh table when stake ends
+                                    updateStakesTable();
                                 }
                             } else {
                                 clearInterval(timerInterval);
@@ -576,115 +561,103 @@
                         }, 1000);
                     }
                 }
-                console.log("Stakes table updated successfully");
+                console.log("Stakes table updated");
             } catch (error) {
                 console.error("Stakes table error:", error);
-                updateStatus("Error loading stakes: " + error.message, true);
+                updateStatus("Error loading stakes", true);
             }
         }
 
         async function withdraw(stakeId) {
             try {
-                console.log(`Withdrawing stake ${stakeId}...`);
                 const gasPrice = await web3.eth.getGasPrice();
-                const gasPriceIncreased = web3.utils.toBN(gasPrice).mul(web3.utils.toBN(120)).div(web3.utils.toBN(100));
-                const gas = await contract.methods.withdrawStake(stakeId).estimateGas({ from: account });
+                const gasEstimate = await contract.methods.withdrawStake(stakeId).estimateGas({ from: account });
                 const tx = await contract.methods.withdrawStake(stakeId).send({
                     from: account,
-                    gas: Math.floor(gas * 1.5),
-                    gasPrice: gasPriceIncreased
+                    gas: Math.floor(gasEstimate * 1.2),
+                    gasPrice
                 });
-                console.log("Withdraw transaction:", tx.transactionHash);
-                updateStatus(`Stake withdrawn successfully (Tx: ${tx.transactionHash.slice(0, 6)}...)`);
+                updateStatus(`Stake withdrawn (Tx: ${tx.transactionHash.slice(0, 6)}...)`, false);
                 await updatePLPBalance();
                 await updateSPWRBalance();
                 await updateStakesTable();
                 await updateTotalRewards();
             } catch (error) {
                 console.error("Withdraw error:", error);
-                updateStatus("Error withdrawing: " + error.message, true);
+                updateStatus("Withdraw failed: " + error.message, true);
             }
         }
 
         async function earlyWithdraw(stakeId) {
             try {
-                console.log(`Early withdrawing stake ${stakeId}...`);
                 const gasPrice = await web3.eth.getGasPrice();
-                const gasPriceIncreased = web3.utils.toBN(gasPrice).mul(web3.utils.toBN(120)).div(web3.utils.toBN(100));
-                const gas = await contract.methods.earlyWithdrawStake(stakeId).estimateGas({ from: account });
+                const gasEstimate = await contract.methods.earlyWithdrawStake(stakeId).estimateGas({ from: account });
                 const tx = await contract.methods.earlyWithdrawStake(stakeId).send({
                     from: account,
-                    gas: Math.floor(gas * 1.5),
-                    gasPrice: gasPriceIncreased
+                    gas: Math.floor(gasEstimate * 1.2),
+                    gasPrice
                 });
-                console.log("Early withdraw transaction:", tx.transactionHash);
-                updateStatus(`Early withdrawal completed (Tx: ${tx.transactionHash.slice(0, 6)}...)`);
+                updateStatus(`Early withdrawal completed (Tx: ${tx.transactionHash.slice(0, 6)}...)`, false);
                 await updatePLPBalance();
                 await updateSPWRBalance();
                 await updateStakesTable();
                 await updateTotalRewards();
             } catch (error) {
                 console.error("Early withdraw error:", error);
-                updateStatus("Error early withdrawing: " + error.message, true);
+                updateStatus("Early withdraw failed: " + error.message, true);
             }
         }
 
         async function claimRewards(stakeId) {
             try {
-                console.log(`Claiming rewards for stake ${stakeId}...`);
                 const gasPrice = await web3.eth.getGasPrice();
-                const gasPriceIncreased = web3.utils.toBN(gasPrice).mul(web3.utils.toBN(120)).div(web3.utils.toBN(100));
-                const gas = await contract.methods.claimRewards(stakeId).estimateGas({ from: account });
+                const gasEstimate = await contract.methods.claimRewards(stakeId).estimateGas({ from: account });
                 const tx = await contract.methods.claimRewards(stakeId).send({
                     from: account,
-                    gas: Math.floor(gas * 1.5),
-                    gasPrice: gasPriceIncreased
+                    gas: Math.floor(gasEstimate * 1.2),
+                    gasPrice
                 });
-                console.log("Claim rewards transaction:", tx.transactionHash);
-                updateStatus(`Rewards claimed successfully (Tx: ${tx.transactionHash.slice(0, 6)}...)`);
+                updateStatus(`Rewards claimed (Tx: ${tx.transactionHash.slice(0, 6)}...)`, false);
                 await updateStakesTable();
                 await updateTotalRewards();
             } catch (error) {
                 console.error("Claim rewards error:", error);
-                updateStatus("Error claiming rewards: " + error.message, true);
+                updateStatus("Claim rewards failed: " + error.message, true);
             }
         }
 
         function updateYieldEstimate() {
-            const amountInput = document.getElementById('stakeAmount').value;
+            const amount = document.getElementById('stakeAmount').value;
             const periodDays = document.getElementById('stakePeriod').value;
             const totalYieldDiv = document.getElementById('totalYield');
             const rewardEstimateDiv = document.getElementById('rewardEstimate');
             const rewardUsdEstimateDiv = document.getElementById('rewardUsdEstimate');
 
-            const amount = parseFloat(amountInput);
-            const period = parseFloat(periodDays);
-            if (isNaN(amount) || isNaN(period) || amount <= 0 || period <= 0) {
+            if (!amount || !periodDays || parseFloat(amount) <= 0) {
                 totalYieldDiv.innerText = "0%";
                 rewardEstimateDiv.innerText = "0 PWR";
                 rewardUsdEstimateDiv.innerText = "$0";
                 return;
             }
 
-            const bonus = {30: 0, 60: 10, 90: 20, 180: 40, 360: 80}[period] || 0;
+            const bonus = {30: 0, 60: 10, 90: 20, 180: 40, 360: 80}[periodDays] || 0;
             contract.methods.currentAPR().call().then(currentAPR => {
                 const apr = parseInt(currentAPR) + bonus;
-                const periodYears = period / 365;
+                const periodYears = parseFloat(periodDays) / 365;
                 const totalYield = (apr * periodYears).toFixed(2);
-                const reward = (amount * apr / 100 * periodYears).toFixed(4);
-                const rewardUsd = pwrPriceUsd ? (reward * pwrPriceUsd).toFixed(2) : "0.00";
+                const reward = (parseFloat(amount) * apr / 100 * periodYears).toFixed(4);
+                const rewardUsd = (reward * pwrPriceUsd).toFixed(2);
 
                 totalYieldDiv.innerText = `${totalYield}%`;
                 rewardEstimateDiv.innerText = `${reward} PWR`;
                 rewardUsdEstimateDiv.innerText = `$${rewardUsd}`;
-                console.log("Yield estimate updated: APR =", apr, "Yield =", totalYield, "Reward =", reward);
             }).catch(error => {
                 console.error("APR fetch error:", error);
                 const apr = 50 + bonus;
-                const periodYears = period / 365;
+                const periodYears = parseFloat(periodDays) / 365;
                 const totalYield = (apr * periodYears).toFixed(2);
-                const reward = (amount * apr / 100 * periodYears).toFixed(4);
-                const rewardUsd = pwrPriceUsd ? (reward * pwrPriceUsd).toFixed(2) : "0.00";
+                const reward = (parseFloat(amount) * apr / 100 * periodYears).toFixed(4);
+                const rewardUsd = (reward * pwrPriceUsd).toFixed(2);
 
                 totalYieldDiv.innerText = `${totalYield}%`;
                 rewardEstimateDiv.innerText = `${reward} PWR`;
@@ -692,11 +665,14 @@
             });
         }
 
+        document.getElementById('stakeAmount').addEventListener('input', updateYieldEstimate);
+        document.getElementById('stakePeriod').addEventListener('change', updateYieldEstimate);
+
         function updateStatus(message, isError = false) {
             const statusDiv = document.getElementById('status');
             statusDiv.innerText = "Status: " + message;
             statusDiv.className = "status " + (isError ? "error" : "success");
-            console.log("Status updated:", message, "Error:", isError);
+            console.log("Status:", message, "Error:", isError);
         }
 
         init();
