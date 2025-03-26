@@ -160,10 +160,13 @@
 
     <script src="https://cdn.jsdelivr.net/npm/web3@1.7.4/dist/web3.min.js"></script>
     <script>
-        const contractAddress = "0x619aBD3Ab24C8a8a13f15E6DAaa2c31D02267184";
-        const plpAddress = "0xe5c56E4a8f8d96e3A91b18D83b7f0c36663C9a74";
-        const pwrAddress = "0x3Eb3B7b3D95Cb3699295D7868F85e43b56AeeFcB";
+        const contractAddressRaw = "0x619aBD3Ab24C8a8a13f15E6DAaa2c31D02267184";
+        const plpAddressRaw = "0xe5c56e4a8f8d96e3a91b18d83b7f0c36663c9a74"; // Minúsculas
+        const pwrAddressRaw = "0x3Eb3B7b3D95Cb3699295D7868F85e43b56AeeFcB";
         const DESIRED_NETWORK_ID = 369;
+
+        let contractAddress, plpAddress, pwrAddress;
+        let web3, account, contract, plpContract, pwrPriceUsd = 0, spwrAddress, selectedProvider;
 
         const powerStakeABI = [
             {"inputs":[],"stateMutability":"nonpayable","type":"constructor"},
@@ -171,15 +174,7 @@
             {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint256","name":"stakeId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"rewardAmount","type":"uint256"}],"name":"RewardsClaimed","type":"event"},
             {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint256","name":"stakeId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"plpAmount","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"duration","type":"uint256"}],"name":"StakeCreated","type":"event"},
             {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint256","name":"stakeId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"plpAmount","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"rewardAmount","type":"uint256"}],"name":"StakeWithdrawn","type":"event"},
-            {"inputs":[],"name":"CLAIM_WINDOW","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
-            {"inputs":[],"name":"MIN_APR","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
-            {"inputs":[],"name":"MIN_PERIOD","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
-            {"inputs":[],"name":"PLP_TOKEN","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
-            {"inputs":[],"name":"PULSEX_ROUTER","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
-            {"inputs":[],"name":"PWR_TOKEN","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
-            {"inputs":[],"name":"REWARD_THRESHOLD","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
             {"inputs":[],"name":"TOTAL_REWARDS","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
-            {"inputs":[],"name":"USDT_TOKEN","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
             {"inputs":[{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"approvePLP","outputs":[],"stateMutability":"nonpayable","type":"function"},
             {"inputs":[{"internalType":"uint256","name":"stakeId","type":"uint256"}],"name":"calculateReward","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"nonpayable","type":"function"},
             {"inputs":[{"internalType":"uint256","name":"stakeId","type":"uint256"}],"name":"claimRewards","outputs":[],"stateMutability":"nonpayable","type":"function"},
@@ -188,13 +183,8 @@
             {"inputs":[{"internalType":"uint256","name":"stakeId","type":"uint256"}],"name":"earlyWithdrawStake","outputs":[],"stateMutability":"nonpayable","type":"function"},
             {"inputs":[{"internalType":"uint256","name":"stakeId","type":"uint256"}],"name":"getStakeDetails","outputs":[{"components":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"uint256","name":"plpAmount","type":"uint256"},{"internalType":"uint256","name":"spwrAmount","type":"uint256"},{"internalType":"uint256","name":"startTime","type":"uint256"},{"internalType":"uint256","name":"duration","type":"uint256"},{"internalType":"uint256","name":"endTime","type":"uint256"},{"internalType":"uint256","name":"rewardAmount","type":"uint256"},{"internalType":"uint256","name":"lastUpdate","type":"uint256"},{"internalType":"bool","name":"claimed","type":"bool"}],"internalType":"struct PowerStake.Stake","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},
             {"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getUserStakes","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"},
-            {"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
-            {"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"periodBonuses","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
             {"inputs":[],"name":"rewardsDistributed","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
             {"inputs":[],"name":"spwrToken","outputs":[{"internalType":"contract SPWRToken","name":"","type":"address"}],"stateMutability":"view","type":"function"},
-            {"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"stakes","outputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"uint256","name":"plpAmount","type":"uint256"},{"internalType":"uint256","name":"spwrAmount","type":"uint256"},{"internalType":"uint256","name":"startTime","type":"uint256"},{"internalType":"uint256","name":"duration","type":"uint256"},{"internalType":"uint256","name":"endTime","type":"uint256"},{"internalType":"uint256","name":"rewardAmount","type":"uint256"},{"internalType":"uint256","name":"lastUpdate","type":"uint256"},{"internalType":"bool","name":"claimed","type":"bool"}],"stateMutability":"view","type":"function"},
-            {"inputs":[],"name":"updateStakes","outputs":[],"stateMutability":"nonpayable","type":"function"},
-            {"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"userStakes","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
             {"inputs":[{"internalType":"uint256","name":"stakeId","type":"uint256"}],"name":"withdrawStake","outputs":[],"stateMutability":"nonpayable","type":"function"}
         ];
 
@@ -203,8 +193,6 @@
             {"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"approve","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},
             {"inputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"address","name":"spender","type":"address"}],"name":"allowance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}
         ];
-
-        let web3, account, contract, plpContract, pwrPriceUsd = 0, spwrAddress, selectedProvider;
 
         async function detectWallets() {
             console.log("Detecting wallets...");
@@ -242,6 +230,7 @@
                 console.log(`Connecting to ${walletName}...`);
                 selectedProvider = provider;
                 web3 = new Web3(provider);
+                console.log("Web3 initialized with provider:", provider);
                 const accounts = await provider.request({ method: 'eth_requestAccounts' });
                 if (!accounts.length) throw new Error("No account selected");
                 account = accounts[0];
@@ -258,10 +247,7 @@
                 updateStakeButtonState();
 
                 provider.on('accountsChanged', handleAccountsChanged);
-                provider.on('chainChanged', () => {
-                    console.log("Network changed, reloading...");
-                    window.location.reload();
-                });
+                provider.on('chainChanged', () => window.location.reload());
             } catch (error) {
                 console.error(`Connect error with ${walletName}:`, error);
                 updateStatus(`Error connecting with ${walletName}: ${error.message}`, true);
@@ -270,7 +256,20 @@
 
         async function initializeContracts() {
             try {
-                console.log("Initializing contracts...");
+                console.log("Initializing Web3 and contracts...");
+                if (!web3) throw new Error("Web3 not initialized - Wallet not connected yet");
+
+                // Validar y convertir direcciones manualmente
+                console.log("Raw addresses:", { contractAddressRaw, plpAddressRaw, pwrAddressRaw });
+                if (!web3.utils.isAddress(plpAddressRaw)) throw new Error(`Invalid raw PLP address: ${plpAddressRaw}`);
+                if (!web3.utils.isAddress(contractAddressRaw)) throw new Error(`Invalid raw contract address: ${contractAddressRaw}`);
+                if (!web3.utils.isAddress(pwrAddressRaw)) throw new Error(`Invalid raw PWR address: ${pwrAddressRaw}`);
+                
+                contractAddress = web3.utils.toChecksumAddress(contractAddressRaw);
+                plpAddress = web3.utils.toChecksumAddress(plpAddressRaw);
+                pwrAddress = web3.utils.toChecksumAddress(pwrAddressRaw);
+                console.log("Checksummed addresses:", { contractAddress, plpAddress, pwrAddress });
+
                 const networkId = await web3.eth.net.getId();
                 console.log("Current network ID:", networkId);
                 if (Number(networkId) !== DESIRED_NETWORK_ID) {
@@ -301,9 +300,11 @@
                 }
 
                 contract = new web3.eth.Contract(powerStakeABI, contractAddress);
+                console.log("PowerStake contract initialized at:", contractAddress);
                 plpContract = new web3.eth.Contract(erc20ABI, plpAddress);
+                console.log("PLP contract initialized at:", plpAddress);
                 spwrAddress = await contract.methods.spwrToken().call();
-                console.log("Contracts initialized - PowerStake:", contractAddress, "PLP:", plpAddress, "SPWR:", spwrAddress);
+                console.log("SPWR address retrieved:", spwrAddress);
             } catch (error) {
                 console.error("Initialize contracts error:", error);
                 updateStatus("Error initializing contracts: " + error.message, true);
@@ -326,7 +327,6 @@
             account = accounts[0] || null;
             document.getElementById('account').innerText = account ? `${account.slice(0, 6)}...${account.slice(-4)}` : "Not connected";
             updateStatus(account ? `Account changed: ${account.slice(0, 6)}...` : "Wallet disconnected", !account);
-            console.log("Account changed:", account);
             if (account) {
                 await updatePLPBalance();
                 await updateSPWRBalance();
@@ -339,12 +339,12 @@
         async function updateTokenPrices() {
             try {
                 console.log("Fetching token prices...");
-                const plpResponse = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${plpAddress}`);
+                const plpResponse = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${plpAddressRaw}`);
                 const plpData = await plpResponse.json();
                 let plpPrice = plpData.pairs && plpData.pairs.length > 0 ? parseFloat(plpData.pairs[0].priceUsd).toFixed(4) : "0.10";
                 document.getElementById('plpPrice').innerText = plpPrice;
 
-                const pwrResponse = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${pwrAddress}`);
+                const pwrResponse = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${pwrAddressRaw}`);
                 const pwrData = await pwrResponse.json();
                 let pwrPrice = pwrData.pairs && pwrData.pairs.length > 0 ? parseFloat(pwrData.pairs[0].priceUsd).toFixed(4) : "0.05";
                 pwrPriceUsd = pwrData.pairs && pwrData.pairs.length > 0 ? parseFloat(pwrData.pairs[0].priceUsd) : 0.05;
@@ -374,13 +374,11 @@
                 const amountWei = web3.utils.toWei(amount, 'ether');
                 const durationSeconds = parseInt(periodDays) * 24 * 60 * 60;
 
-                // Check PLP balance
                 const balanceWei = await plpContract.methods.balanceOf(account).call();
                 const balance = web3.utils.fromWei(balanceWei, 'ether');
                 if (parseFloat(balance) < parseFloat(amount)) throw new Error(`Insufficient PLP balance: ${balance} PLP available`);
                 console.log("PLP balance:", balance);
 
-                // Check and approve PLP
                 const allowanceWei = await plpContract.methods.allowance(account, contractAddress).call();
                 console.log("Current allowance:", web3.utils.fromWei(allowanceWei, 'ether'), "PLP");
                 if (web3.utils.toBN(allowanceWei).lt(web3.utils.toBN(amountWei))) {
@@ -400,7 +398,6 @@
                     console.log("Allowance sufficient, no approval needed");
                 }
 
-                // Create stake
                 updateStatus("Creating stake...");
                 console.log("Creating stake: Amount =", amountWei, "Duration =", durationSeconds);
                 const gasPriceStake = await web3.eth.getGasPrice();
@@ -414,7 +411,6 @@
                 console.log("Stake successful:", stakeTx.transactionHash);
                 updateStatus(`Stake created (Tx: ${stakeTx.transactionHash.slice(0, 6)}...)`, false);
 
-                // Update UI
                 await updatePLPBalance();
                 await updateSPWRBalance();
                 await updateStakesTable();
@@ -439,8 +435,14 @@
             console.log("Stake button state:", isDisabled ? "Disabled" : "Enabled");
         }
 
-        document.getElementById('stakeAmount').addEventListener('input', updateStakeButtonState);
-        document.getElementById('stakePeriod').addEventListener('change', updateStakeButtonState);
+        document.getElementById('stakeAmount').addEventListener('input', () => {
+            updateStakeButtonState();
+            updateYieldEstimate();
+        });
+        document.getElementById('stakePeriod').addEventListener('change', () => {
+            updateStakeButtonState();
+            updateYieldEstimate();
+        });
 
         async function updatePLPBalance() {
             if (!account || !plpContract) return;
@@ -664,9 +666,6 @@
                 rewardUsdEstimateDiv.innerText = `$${rewardUsd}`;
             });
         }
-
-        document.getElementById('stakeAmount').addEventListener('input', updateYieldEstimate);
-        document.getElementById('stakePeriod').addEventListener('change', updateYieldEstimate);
 
         function updateStatus(message, isError = false) {
             const statusDiv = document.getElementById('status');
