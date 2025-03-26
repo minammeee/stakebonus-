@@ -104,7 +104,7 @@
             </div>
             <div>
                 <h2>PLP Balance</h2>
-                <p>Available Balance: <span id="plpBalance">0</span> PLP</p>
+                <p>Available Balance: <span id="plpBalance">0</span> PLP ($<span id="plpBalanceUsd">0</span>)</p>
             </div>
             <div>
                 <h2>SPWR (Staked PLP)</h2>
@@ -179,6 +179,12 @@
             <button type="button" onclick="window.open('https://twitter.com/powercoinpwr', '_blank')" aria-label="Visit PowerCoin on X">
                 <span><i class="fab fa-twitter"></i></span> X
             </button>
+            <button type="button" onclick="window.open('https://t.me/+fM8oDk6HssdlNmVh', '_blank')" aria-label="Join PowerCoin on Telegram">
+                <span><i class="fab fa-telegram"></i></span> Telegram
+            </button>
+            <button type="button" onclick="window.open('https://www.tiktok.com/@powercoin.pwr', '_blank')" aria-label="Follow PowerCoin on TikTok">
+                <span><i class="fab fa-tiktok"></i></span> TikTok
+            </button>
         </div>
     </div>
 
@@ -198,7 +204,7 @@
         const DESIRED_NETWORK_ID = 369;
 
         let contractAddress, plpAddress, pwrAddress;
-        let web3, account, contract, plpContract, pwrPriceUsd = 0, spwrAddress, selectedProvider;
+        let web3, account, contract, plpContract, pwrPriceUsd = 0, plpPriceUsd = 0, spwrAddress, selectedProvider;
 
         const powerStakeABI = [
             {"inputs":[],"stateMutability":"nonpayable","type":"constructor"},
@@ -363,21 +369,22 @@
                 console.log("Fetching token prices...");
                 const plpResponse = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${plpAddressRaw}`);
                 const plpData = await plpResponse.json();
-                let plpPrice = plpData.pairs && plpData.pairs.length > 0 ? parseFloat(plpData.pairs[0].priceUsd).toFixed(4) : "0.10";
-                document.getElementById('plpPrice').innerText = plpPrice;
+                plpPriceUsd = plpData.pairs && plpData.pairs.length > 0 ? parseFloat(plpData.pairs[0].priceUsd) : 0.10;
+                document.getElementById('plpPrice').innerText = plpPriceUsd.toFixed(4);
 
                 const pwrResponse = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${pwrAddressRaw}`);
                 const pwrData = await pwrResponse.json();
-                let pwrPrice = pwrData.pairs && pwrData.pairs.length > 0 ? parseFloat(pwrData.pairs[0].priceUsd).toFixed(4) : "0.05";
                 pwrPriceUsd = pwrData.pairs && pwrData.pairs.length > 0 ? parseFloat(pwrData.pairs[0].priceUsd) : 0.05;
-                document.getElementById('pwrPrice').innerText = pwrPrice;
+                document.getElementById('pwrPrice').innerText = pwrPriceUsd.toFixed(4);
 
                 updateYieldEstimate();
+                if (account) await updatePLPBalance();
             } catch (error) {
                 console.error("Price fetch error:", error);
+                plpPriceUsd = 0.10;
+                pwrPriceUsd = 0.05;
                 document.getElementById('plpPrice').innerText = "0.10";
                 document.getElementById('pwrPrice').innerText = "0.05";
-                pwrPriceUsd = 0.05;
                 updateStatus("Error loading prices", true);
             }
         }
@@ -459,8 +466,10 @@
             try {
                 const balanceWei = await plpContract.methods.balanceOf(account).call();
                 const balance = web3.utils.fromWei(balanceWei, 'ether');
+                const balanceUsd = (parseFloat(balance) * plpPriceUsd).toFixed(2);
                 document.getElementById('plpBalance').innerText = parseFloat(balance).toFixed(4);
-                console.log("PLP balance:", balance);
+                document.getElementById('plpBalanceUsd').innerText = balanceUsd;
+                console.log("PLP balance:", balance, "USD:", balanceUsd);
             } catch (error) {
                 console.error("PLP balance error:", error);
                 updateStatus("Error loading PLP balance", true);
