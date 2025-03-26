@@ -41,6 +41,7 @@
         <h1>General Stakes</h1>
         <div class="button-group">
             <button onclick="window.location.href='index.html'" aria-label="Back to main page">Back to Main</button>
+            <button onclick="window.location.href='plp-value.html'" aria-label="View PLP value in USD">PLP Value</button>
         </div>
         <div class="chart-container">
             <h2>PWR Price History (PulseChain)</h2>
@@ -198,15 +199,13 @@
                 const tbody = document.getElementById('growthTable');
                 tbody.innerHTML = '';
 
-                // Simulación basada en el contrato original
                 const currentAPR = await contract.methods.currentAPR().call();
-                const apr = parseInt(currentAPR) / 100; // Convertir a decimal
+                const apr = parseInt(currentAPR) / 100;
                 let totalPWR = 0;
                 let totalPLP = 0;
                 let totalPLS = 0;
 
                 for (let day = 0; day <= 20; day += 5) {
-                    // Usamos datos del contrato original como base
                     let stakeCount = 0;
                     for (let stakeId = 0; stakeId < 1000; stakeId++) {
                         try {
@@ -221,10 +220,9 @@
                         }
                     }
 
-                    // Simulación de crecimiento (sin ABI de sPWR)
-                    totalPWR += totalPWR * (apr / 365 * 5); // Incremento por 5 días
-                    totalPLS = totalPWR * 100; // Asumimos 1 PWR = 100 PLS
-                    const gains = totalPLS * (day / 100); // Ganancia proporcional al tiempo
+                    totalPWR += totalPWR * (apr / 365 * 5);
+                    totalPLS = totalPWR * 100;
+                    const gains = totalPLS * (day / 100);
 
                     const row = document.createElement('tr');
                     row.innerHTML = `
