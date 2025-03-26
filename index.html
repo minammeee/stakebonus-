@@ -42,7 +42,8 @@
         .no-data { text-align: center; padding: 15px; color: #d0d0d0; font-style: italic; }
         .button-group { display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 20px; }
         .chart-btn { padding: 8px 15px; font-size: 12px; }
-        .view-stakes-btn { display: block; margin: 20px auto; text-align: center; }
+        .view-stakes-btn { display: flex; justify-content: center; gap: 10px; margin: 20px auto; text-align: center; }
+        .footer-buttons { display: flex; justify-content: center; gap: 15px; margin-top: 20px; }
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 1000; }
         .modal-content { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #1a1a1a; padding: 20px; border-radius: 15px; box-shadow: 0 0 20px rgba(255, 221, 0, 0.4); text-align: center; max-width: 300px; width: 100%; }
         .modal-content h3 { color: #ffdd00; margin-bottom: 20px; }
@@ -59,6 +60,8 @@
             .yield-box { grid-template-columns: 1fr; }
             .button-group { flex-direction: column; gap: 10px; }
             .chart-btn { padding: 6px 12px; font-size: 10px; }
+            .view-stakes-btn { flex-direction: column; gap: 10px; }
+            .footer-buttons { flex-direction: column; gap: 10px; }
         }
     </style>
 </head>
@@ -146,8 +149,17 @@
         </div>
         <div class="view-stakes-btn">
             <button onclick="window.location.href='general-stakes.html'" aria-label="View all stakes">View All Stakes</button>
+            <button onclick="window.location.href='why-invest-pwr.html'" aria-label="Why Stake PLP is Better">Why Stake PLP is Better</button>
         </div>
         <div class="status" id="status">Status: Waiting for action...</div>
+        <div class="footer-buttons">
+            <button type="button" onclick="window.open('https://powercoin-pwr.com/', '_blank')" aria-label="Visit PowerCoin Website">
+                <span><i class="fas fa-globe"></i></span> Website
+            </button>
+            <button type="button" onclick="window.open('https://twitter.com/powercoinpwr', '_blank')" aria-label="Visit PowerCoin on X">
+                <span><i class="fab fa-twitter"></i></span> X
+            </button>
+        </div>
     </div>
 
     <div id="walletModal" class="modal">
@@ -161,7 +173,7 @@
     <script src="https://cdn.jsdelivr.net/npm/web3@1.7.4/dist/web3.min.js"></script>
     <script>
         const contractAddressRaw = "0x619aBD3Ab24C8a8a13f15E6DAaa2c31D02267184";
-        const plpAddressRaw = "0xe5c56e4a8f8d96e3a91b18d83b7f0c36663c9a74"; // Minúsculas
+        const plpAddressRaw = "0xe5c56e4a8f8d96e3A91b18d83b7f0c36663c9a74"; // Minúsculas
         const pwrAddressRaw = "0x3Eb3B7b3D95Cb3699295D7868F85e43b56AeeFcB";
         const DESIRED_NETWORK_ID = 369;
 
@@ -259,7 +271,6 @@
                 console.log("Initializing Web3 and contracts...");
                 if (!web3) throw new Error("Web3 not initialized - Wallet not connected yet");
 
-                // Validar y convertir direcciones manualmente
                 console.log("Raw addresses:", { contractAddressRaw, plpAddressRaw, pwrAddressRaw });
                 if (!web3.utils.isAddress(plpAddressRaw)) throw new Error(`Invalid raw PLP address: ${plpAddressRaw}`);
                 if (!web3.utils.isAddress(contractAddressRaw)) throw new Error(`Invalid raw contract address: ${contractAddressRaw}`);
