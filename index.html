@@ -106,7 +106,7 @@
                     <option value="360">360 Days (80% Bonus)</option>
                 </select>
             </div>
-            <button id="stakeButton" disabled aria-label="Stake PLP tokens">Stake PLP</button>
+            <button id="stakeButton" disabled aria-label="Approve and Stake PLP tokens">Approve & Stake PLP</button>
             <div class="yield-box">
                 <div>
                     <p><i class="fas fa-chart-line icon"></i> Current APR</p>
@@ -165,39 +165,39 @@
         const plpAddress = "0xe5c56E4a8f8d96e3A91b18D83b7f0c36663C9a74";
         const pwrAddress = "0x3Eb3B7b3D95Cb3699295D7868F85e43b56AeeFcB";
         const DESIRED_NETWORK_ID = 369;
-        const APPROVAL_AMOUNT = "1000000000000000000000000";
+        const APPROVAL_AMOUNT = "1000000000000000000000000"; // Gran cantidad para evitar múltiples aprobaciones
 
         const powerStakeABI = [
             {"inputs":[],"stateMutability":"nonpayable","type":"constructor"},
-            {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":true,"internalType":"uint256","name":"stakeId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"penaltyBurned","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"penaltyRetained","type":"uint256"}],"name":"EarlyWithdrawal","type":"event"},
-            {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":true,"internalType":"uint256","name":"stakeId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"rewardAmount","type":"uint256"}],"name":"RewardsClaimed","type":"event"},
-            {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":true,"internalType":"uint256","name":"stakeId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"plpAmount","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"duration","type":"uint256"}],"name":"StakeCreated","type":"event"},
-            {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":true,"internalType":"uint256","name":"stakeId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"plpAmount","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"rewardAmount","type":"uint256"}],"name":"StakeWithdrawn","type":"event"},
+            {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint256","name":"stakeId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"penaltyBurned","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"penaltyRetained","type":"uint256"}],"name":"EarlyWithdrawal","type":"event"},
+            {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint256","name":"stakeId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"rewardAmount","type":"uint256"}],"name":"RewardsClaimed","type":"event"},
+            {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint256","name":"stakeId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"plpAmount","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"duration","type":"uint256"}],"name":"StakeCreated","type":"event"},
+            {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint256","name":"stakeId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"plpAmount","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"rewardAmount","type":"uint256"}],"name":"StakeWithdrawn","type":"event"},
+            {"inputs":[],"name":"CLAIM_WINDOW","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+            {"inputs":[],"name":"MIN_APR","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+            {"inputs":[],"name":"MIN_PERIOD","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+            {"inputs":[],"name":"PLP_TOKEN","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
+            {"inputs":[],"name":"PULSEX_ROUTER","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
+            {"inputs":[],"name":"PWR_TOKEN","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
+            {"inputs":[],"name":"REWARD_THRESHOLD","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+            {"inputs":[],"name":"TOTAL_REWARDS","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+            {"inputs":[],"name":"USDT_TOKEN","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
             {"inputs":[{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"approvePLP","outputs":[],"stateMutability":"nonpayable","type":"function"},
             {"inputs":[{"internalType":"uint256","name":"stakeId","type":"uint256"}],"name":"calculateReward","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"nonpayable","type":"function"},
             {"inputs":[{"internalType":"uint256","name":"stakeId","type":"uint256"}],"name":"claimRewards","outputs":[],"stateMutability":"nonpayable","type":"function"},
             {"inputs":[{"internalType":"uint256","name":"plpAmount","type":"uint256"},{"internalType":"uint256","name":"duration","type":"uint256"}],"name":"createStake","outputs":[],"stateMutability":"nonpayable","type":"function"},
-            {"inputs":[{"internalType":"uint256","name":"stakeId","type":"uint256"}],"name":"earlyWithdrawStake","outputs":[],"stateMutability":"nonpayable","type":"function"},
-            {"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getUserStakes","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"},
-            {"inputs":[{"internalType":"uint256","name":"stakeId","type":"uint256"}],"name":"getStakeDetails","outputs":[{"components":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"uint256","name":"plpAmount","type":"uint256"},{"internalType":"uint256","name":"spwrAmount","type":"uint256"},{"internalType":"uint256","name":"startTime","type":"uint256"},{"internalType":"uint256","name":"duration","type":"uint256"},{"internalType":"uint256","name":"endTime","type":"uint256"},{"internalType":"uint256","name":"rewardAmount","type":"uint256"},{"internalType":"uint256","name":"lastUpdate","type":"uint256"},{"internalType":"bool","name":"claimed","type":"bool"}],"internalType":"struct PowerStake.Stake","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},
-            {"inputs":[{"internalType":"uint256","name":"stakeId","type":"uint256"}],"name":"withdrawStake","outputs":[],"stateMutability":"nonpayable","type":"function"},
-            {"inputs":[],"name":"updateStakes","outputs":[],"stateMutability":"nonpayable","type":"function"},
-            {"inputs":[],"name":"PLP_TOKEN","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
-            {"inputs":[],"name":"PWR_TOKEN","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
-            {"inputs":[],"name":"USDT_TOKEN","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
-            {"inputs":[],"name":"PULSEX_ROUTER","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
-            {"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
-            {"inputs":[],"name":"spwrToken","outputs":[{"internalType":"contract SPWRToken","name":"","type":"address"}],"stateMutability":"view","type":"function"},
-            {"inputs":[],"name":"TOTAL_REWARDS","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
-            {"inputs":[],"name":"rewardsDistributed","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
             {"inputs":[],"name":"currentAPR","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
-            {"inputs":[],"name":"MIN_APR","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
-            {"inputs":[],"name":"REWARD_THRESHOLD","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
-            {"inputs":[],"name":"CLAIM_WINDOW","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
-            {"inputs":[],"name":"MIN_PERIOD","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+            {"inputs":[{"internalType":"uint256","name":"stakeId","type":"uint256"}],"name":"earlyWithdrawStake","outputs":[],"stateMutability":"nonpayable","type":"function"},
+            {"inputs":[{"internalType":"uint256","name":"stakeId","type":"uint256"}],"name":"getStakeDetails","outputs":[{"components":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"uint256","name":"plpAmount","type":"uint256"},{"internalType":"uint256","name":"spwrAmount","type":"uint256"},{"internalType":"uint256","name":"startTime","type":"uint256"},{"internalType":"uint256","name":"duration","type":"uint256"},{"internalType":"uint256","name":"endTime","type":"uint256"},{"internalType":"uint256","name":"rewardAmount","type":"uint256"},{"internalType":"uint256","name":"lastUpdate","type":"uint256"},{"internalType":"bool","name":"claimed","type":"bool"}],"internalType":"struct PowerStake.Stake","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},
+            {"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getUserStakes","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"},
+            {"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
             {"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"periodBonuses","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+            {"inputs":[],"name":"rewardsDistributed","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+            {"inputs":[],"name":"spwrToken","outputs":[{"internalType":"contract SPWRToken","name":"","type":"address"}],"stateMutability":"view","type":"function"},
             {"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"stakes","outputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"uint256","name":"plpAmount","type":"uint256"},{"internalType":"uint256","name":"spwrAmount","type":"uint256"},{"internalType":"uint256","name":"startTime","type":"uint256"},{"internalType":"uint256","name":"duration","type":"uint256"},{"internalType":"uint256","name":"endTime","type":"uint256"},{"internalType":"uint256","name":"rewardAmount","type":"uint256"},{"internalType":"uint256","name":"lastUpdate","type":"uint256"},{"internalType":"bool","name":"claimed","type":"bool"}],"stateMutability":"view","type":"function"},
-            {"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"userStakes","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}
+            {"inputs":[],"name":"updateStakes","outputs":[],"stateMutability":"nonpayable","type":"function"},
+            {"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"userStakes","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+            {"inputs":[{"internalType":"uint256","name":"stakeId","type":"uint256"}],"name":"withdrawStake","outputs":[],"stateMutability":"nonpayable","type":"function"}
         ];
 
         const erc20ABI = [
@@ -209,12 +209,14 @@
         let web3, account, contract, plpContract, pwrPriceUsd = 0, spwrAddress, selectedProvider;
 
         async function detectWallets() {
+            console.log("Detecting wallets...");
             const providers = window.ethereum?.providers || (window.ethereum ? [window.ethereum] : []);
             const walletOptions = document.getElementById('walletOptions');
             walletOptions.innerHTML = '';
 
             if (providers.length === 0) {
                 walletOptions.innerHTML = '<p>No wallets detected. Please install MetaMask or Rabby Wallet.</p>';
+                console.error("No wallets detected");
                 return;
             }
 
@@ -228,14 +230,17 @@
             });
 
             document.getElementById('walletModal').style.display = 'block';
+            console.log("Wallet modal displayed with", providers.length, "options");
         }
 
         function closeWalletModal() {
             document.getElementById('walletModal').style.display = 'none';
+            console.log("Wallet modal closed");
         }
 
         async function connectWallet(provider, walletName) {
             try {
+                console.log(`Connecting to ${walletName}...`);
                 selectedProvider = provider;
                 web3 = new Web3(provider);
                 const accounts = await provider.request({ method: 'eth_requestAccounts' });
@@ -243,6 +248,7 @@
                 account = accounts[0];
                 document.getElementById('account').innerText = account;
                 updateStatus(`Connected with ${walletName}: ${account.slice(0, 6)}...`);
+                console.log("Connected account:", account);
                 closeWalletModal();
 
                 await initializeContracts();
@@ -253,62 +259,78 @@
                 updateStakeButtonState();
 
                 provider.on('accountsChanged', handleAccountsChanged);
-                provider.on('chainChanged', () => window.location.reload());
+                provider.on('chainChanged', () => {
+                    console.log("Network changed, reloading...");
+                    window.location.reload();
+                });
             } catch (error) {
-                console.error("Connect error:", error);
+                console.error(`Connect error with ${walletName}:`, error);
                 updateStatus(`Error connecting with ${walletName}: ${error.message}`, true);
             }
         }
 
         async function initializeContracts() {
-            contract = new web3.eth.Contract(powerStakeABI, contractAddress);
-            plpContract = new web3.eth.Contract(erc20ABI, plpAddress);
-            console.log("Contract initialized at:", contractAddress);
-            console.log("Available methods:", Object.keys(contract.methods));
+            try {
+                console.log("Initializing contracts...");
+                contract = new web3.eth.Contract(powerStakeABI, contractAddress);
+                plpContract = new web3.eth.Contract(erc20ABI, plpAddress);
+                console.log("Contract initialized at:", contractAddress);
+                console.log("Available methods:", Object.keys(contract.methods));
 
-            const networkId = await web3.eth.net.getId();
-            if (networkId !== DESIRED_NETWORK_ID) {
-                try {
-                    await selectedProvider.request({
-                        method: 'wallet_switchEthereumChain',
-                        params: [{ chainId: web3.utils.toHex(DESIRED_NETWORK_ID) }],
-                    });
-                } catch (switchError) {
-                    if (switchError.code === 4902) {
+                const networkId = await web3.eth.net.getId();
+                console.log("Current network ID:", networkId);
+                if (networkId !== DESIRED_NETWORK_ID) {
+                    console.log("Switching to PulseChain...");
+                    try {
                         await selectedProvider.request({
-                            method: 'wallet_addEthereumChain',
-                            params: [{
-                                chainId: web3.utils.toHex(DESIRED_NETWORK_ID),
-                                chainName: 'PulseChain',
-                                nativeCurrency: { name: 'Pulse', symbol: 'PLS', decimals: 18 },
-                                rpcUrls: ['https://rpc.pulsechain.com'],
-                                blockExplorerUrls: ['https://scan.pulsechain.com']
-                            }]
+                            method: 'wallet_switchEthereumChain',
+                            params: [{ chainId: web3.utils.toHex(DESIRED_NETWORK_ID) }],
                         });
-                    } else {
-                        throw switchError;
+                        console.log("Switched to PulseChain");
+                    } catch (switchError) {
+                        if (switchError.code === 4902) {
+                            await selectedProvider.request({
+                                method: 'wallet_addEthereumChain',
+                                params: [{
+                                    chainId: web3.utils.toHex(DESIRED_NETWORK_ID),
+                                    chainName: 'PulseChain',
+                                    nativeCurrency: { name: 'Pulse', symbol: 'PLS', decimals: 18 },
+                                    rpcUrls: ['https://rpc.pulsechain.com'],
+                                    blockExplorerUrls: ['https://scan.pulsechain.com']
+                                }]
+                            });
+                            console.log("Added PulseChain to wallet");
+                        } else {
+                            throw switchError;
+                        }
                     }
                 }
-            }
 
-            spwrAddress = await contract.methods.spwrToken().call();
-            console.log("SPWR Token Address:", spwrAddress);
+                spwrAddress = await contract.methods.spwrToken().call();
+                console.log("SPWR Token Address:", spwrAddress);
+            } catch (error) {
+                console.error("Initialize contracts error:", error);
+                updateStatus("Error initializing contracts: " + error.message, true);
+            }
         }
 
         async function init() {
             if (!window.ethereum) {
                 updateStatus("No wallet detected. Install MetaMask or Rabby Wallet.", true);
+                console.error("No Ethereum provider detected");
                 return;
             }
             document.getElementById('connectWallet').addEventListener('click', detectWallets);
             await updateTokenPrices();
             await updateTotalRewards();
+            console.log("Initialization complete");
         }
 
         async function handleAccountsChanged(accounts) {
             account = accounts[0] || null;
             document.getElementById('account').innerText = account || "Not connected";
             updateStatus(account ? `Account changed: ${account.slice(0, 6)}...` : "Wallet disconnected", !account);
+            console.log("Account changed:", account);
             if (account) {
                 await updatePLPBalance();
                 await updateSPWRBalance();
@@ -320,6 +342,7 @@
 
         async function updateTokenPrices() {
             try {
+                console.log("Fetching token prices...");
                 const plpResponse = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${plpAddress}`);
                 if (!plpResponse.ok) throw new Error("Failed to fetch PLP price");
                 const plpData = await plpResponse.json();
@@ -334,6 +357,7 @@
                 document.getElementById('pwrPrice').innerText = pwrPrice;
 
                 updateYieldEstimate();
+                console.log("Token prices updated: PLP =", plpPrice, "PWR =", pwrPrice);
             } catch (error) {
                 console.error("Price fetch error:", error);
                 document.getElementById('plpPrice').innerText = "0.10";
@@ -344,50 +368,73 @@
             }
         }
 
-        document.getElementById('stakeAmount').addEventListener('input', updateYieldEstimate);
-        document.getElementById('stakePeriod').addEventListener('change', updateYieldEstimate);
+        document.getElementById('stakeAmount').addEventListener('input', () => {
+            updateYieldEstimate();
+            updateStakeButtonState();
+        });
+        document.getElementById('stakePeriod').addEventListener('change', () => {
+            updateYieldEstimate();
+            updateStakeButtonState();
+        });
 
         document.getElementById('stakeButton').addEventListener('click', async () => {
             try {
                 if (!account) throw new Error("Wallet not connected");
+                console.log("Stake button clicked, account:", account);
 
                 const amount = document.getElementById('stakeAmount').value;
                 const periodDays = document.getElementById('stakePeriod').value;
                 if (!amount || !periodDays || amount <= 0) throw new Error("Invalid amount or period");
+                console.log("Stake parameters: amount =", amount, "period =", periodDays);
 
                 const balanceWei = await plpContract.methods.balanceOf(account).call();
                 const balance = web3.utils.fromWei(balanceWei, 'ether');
                 if (parseFloat(balance) < parseFloat(amount)) throw new Error("Insufficient PLP balance");
+                console.log("PLP balance:", balance);
 
                 const amountWei = web3.utils.toWei(amount, 'ether');
                 const durationSeconds = periodDays * 24 * 60 * 60;
                 const gasPrice = await web3.eth.getGasPrice();
                 const gasPriceIncreased = web3.utils.toBN(gasPrice).mul(web3.utils.toBN(120)).div(web3.utils.toBN(100));
+                console.log("Gas price:", gasPrice, "Increased:", gasPriceIncreased);
 
+                // Verificar y realizar aprobación si es necesario
                 const allowanceWei = await plpContract.methods.allowance(account, contractAddress).call();
+                console.log("Current allowance:", allowanceWei);
                 if (web3.utils.toBN(allowanceWei).lt(web3.utils.toBN(amountWei))) {
+                    updateStatus("Approving PLP...");
+                    console.log("Approving PLP for amount:", APPROVAL_AMOUNT);
                     const approvalGas = await plpContract.methods.approve(contractAddress, APPROVAL_AMOUNT).estimateGas({ from: account });
-                    await plpContract.methods.approve(contractAddress, APPROVAL_AMOUNT).send({
+                    const approvalTx = await plpContract.methods.approve(contractAddress, APPROVAL_AMOUNT).send({
                         from: account,
                         gas: Math.floor(approvalGas * 1.2),
                         gasPrice: gasPriceIncreased
                     });
+                    console.log("Approval transaction:", approvalTx.transactionHash);
+                    updateStatus(`PLP approved (Tx: ${approvalTx.transactionHash.slice(0, 6)}...)`);
+                } else {
+                    console.log("No approval needed, allowance sufficient");
                 }
 
+                // Crear el stake
+                updateStatus("Creating stake...");
+                console.log("Creating stake with amount:", amountWei, "duration:", durationSeconds);
                 const stakeGas = await contract.methods.createStake(amountWei, durationSeconds).estimateGas({ from: account });
                 const stakeTx = await contract.methods.createStake(amountWei, durationSeconds).send({
                     from: account,
                     gas: Math.floor(stakeGas * 1.2),
                     gasPrice: gasPriceIncreased
                 });
+                console.log("Stake transaction:", stakeTx.transactionHash);
                 updateStatus(`Stake created successfully (Tx: ${stakeTx.transactionHash.slice(0, 6)}...)`);
+
                 await updatePLPBalance();
                 await updateSPWRBalance();
                 await updateStakesTable();
                 await updateTotalRewards();
             } catch (error) {
                 console.error("Stake error:", error);
-                updateStatus("Error staking: " + (error.message.includes("User denied") ? "Transaction rejected" : error.message), true);
+                updateStatus("Error during approve/stake: " + (error.message.includes("User denied") ? "Transaction rejected" : error.message), true);
             }
         });
 
@@ -399,6 +446,7 @@
             const amount = document.getElementById('stakeAmount').value || 0;
             const period = document.getElementById('stakePeriod').value || "";
             document.getElementById('stakeButton').disabled = amount <= 0 || !period;
+            console.log("Stake button state updated: disabled =", document.getElementById('stakeButton').disabled);
         }
 
         async function updatePLPBalance() {
@@ -407,6 +455,7 @@
                 const balanceWei = await plpContract.methods.balanceOf(account).call();
                 const balance = web3.utils.fromWei(balanceWei, 'ether');
                 document.getElementById('plpBalance').innerText = parseFloat(balance).toFixed(4);
+                console.log("PLP balance updated:", balance);
             } catch (error) {
                 console.error("PLP balance error:", error);
                 updateStatus("Error loading PLP balance", true);
@@ -423,6 +472,7 @@
                 const spwrBalanceWei = await spwrContract.methods.balanceOf(account).call();
                 const spwrBalance = web3.utils.fromWei(spwrBalanceWei, 'ether');
                 document.getElementById('spwrBalance').innerText = parseFloat(spwrBalance).toFixed(4);
+                console.log("SPWR balance updated:", spwrBalance);
             } catch (error) {
                 console.error("SPWR balance error:", error);
                 updateStatus("Error loading SPWR balance", true);
@@ -438,6 +488,7 @@
                 
                 const currentAPR = await contract.methods.currentAPR().call();
                 document.getElementById('aprYield').innerText = `${currentAPR}%`;
+                console.log("Total rewards updated:", remainingRewards, "Current APR:", currentAPR);
             } catch (error) {
                 console.error("Total rewards error:", error);
                 updateStatus("Error loading total rewards: " + error.message, true);
@@ -456,10 +507,12 @@
         async function updateStakesTable() {
             if (!account) {
                 document.getElementById('stakesTable').innerHTML = '<tr><td colspan="8" class="no-data">Connect your wallet to view your stakes</td></tr>';
+                console.log("No account connected, stakes table cleared");
                 return;
             }
 
             try {
+                console.log("Fetching user stakes for:", account);
                 const stakeIds = await contract.methods.getUserStakes(account).call();
                 console.log("User stake IDs:", stakeIds);
                 const tbody = document.getElementById('stakesTable');
@@ -467,12 +520,13 @@
 
                 if (stakeIds.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="8" class="no-data">You have no active stakes</td></tr>';
+                    console.log("No stakes found for user");
                     return;
                 }
 
                 for (let stakeId of stakeIds) {
                     const stake = await contract.methods.getStakeDetails(stakeId).call();
-                    console.log(`Stake ${stakeId}:`, stake);
+                    console.log(`Stake ${stakeId} details:`, stake);
                     if (stake.claimed) continue;
 
                     const amount = web3.utils.fromWei(stake.plpAmount, 'ether');
@@ -517,6 +571,7 @@
                         }, 1000);
                     }
                 }
+                console.log("Stakes table updated successfully");
             } catch (error) {
                 console.error("Stakes table error:", error);
                 updateStatus("Error loading stakes: " + error.message, true);
@@ -525,6 +580,7 @@
 
         async function withdraw(stakeId) {
             try {
+                console.log(`Withdrawing stake ${stakeId}...`);
                 const gasPrice = await web3.eth.getGasPrice();
                 const gasPriceIncreased = web3.utils.toBN(gasPrice).mul(web3.utils.toBN(120)).div(web3.utils.toBN(100));
                 const gas = await contract.methods.withdrawStake(stakeId).estimateGas({ from: account });
@@ -533,6 +589,7 @@
                     gas: Math.floor(gas * 1.2),
                     gasPrice: gasPriceIncreased
                 });
+                console.log("Withdraw transaction:", tx.transactionHash);
                 updateStatus(`Stake withdrawn successfully (Tx: ${tx.transactionHash.slice(0, 6)}...)`);
                 await updatePLPBalance();
                 await updateSPWRBalance();
@@ -546,6 +603,7 @@
 
         async function earlyWithdraw(stakeId) {
             try {
+                console.log(`Early withdrawing stake ${stakeId}...`);
                 const gasPrice = await web3.eth.getGasPrice();
                 const gasPriceIncreased = web3.utils.toBN(gasPrice).mul(web3.utils.toBN(120)).div(web3.utils.toBN(100));
                 const gas = await contract.methods.earlyWithdrawStake(stakeId).estimateGas({ from: account });
@@ -554,6 +612,7 @@
                     gas: Math.floor(gas * 1.2),
                     gasPrice: gasPriceIncreased
                 });
+                console.log("Early withdraw transaction:", tx.transactionHash);
                 updateStatus(`Early withdrawal completed (Tx: ${tx.transactionHash.slice(0, 6)}...)`);
                 await updatePLPBalance();
                 await updateSPWRBalance();
@@ -567,6 +626,7 @@
 
         async function claimRewards(stakeId) {
             try {
+                console.log(`Claiming rewards for stake ${stakeId}...`);
                 const gasPrice = await web3.eth.getGasPrice();
                 const gasPriceIncreased = web3.utils.toBN(gasPrice).mul(web3.utils.toBN(120)).div(web3.utils.toBN(100));
                 const gas = await contract.methods.claimRewards(stakeId).estimateGas({ from: account });
@@ -575,6 +635,7 @@
                     gas: Math.floor(gas * 1.2),
                     gasPrice: gasPriceIncreased
                 });
+                console.log("Claim rewards transaction:", tx.transactionHash);
                 updateStatus(`Rewards claimed successfully (Tx: ${tx.transactionHash.slice(0, 6)}...)`);
                 await updateStakesTable();
                 await updateTotalRewards();
@@ -611,6 +672,7 @@
                 totalYieldDiv.innerText = `${totalYield}%`;
                 rewardEstimateDiv.innerText = `${reward} PWR`;
                 rewardUsdEstimateDiv.innerText = `$${rewardUsd}`;
+                console.log("Yield estimate updated: APR =", apr, "Yield =", totalYield, "Reward =", reward);
             }).catch(error => {
                 console.error("APR fetch error:", error);
                 const apr = 50 + bonus; // Fallback
@@ -629,6 +691,7 @@
             const statusDiv = document.getElementById('status');
             statusDiv.innerText = "Status: " + message;
             statusDiv.className = "status " + (isError ? "error" : "success");
+            console.log("Status updated:", message, "Error:", isError);
         }
 
         init();
