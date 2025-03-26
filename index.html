@@ -165,7 +165,6 @@
         const plpAddress = "0xe5c56E4a8f8d96e3A91b18D83b7f0c36663C9a74";
         const pwrAddress = "0x3Eb3B7b3D95Cb3699295D7868F85e43b56AeeFcB";
         const DESIRED_NETWORK_ID = 369;
-        const APPROVAL_AMOUNT = "1000000000000000000000000"; // Gran cantidad para evitar múltiples aprobaciones
 
         const powerStakeABI = [
             {"inputs":[],"stateMutability":"nonpayable","type":"constructor"},
@@ -275,7 +274,6 @@
                 contract = new web3.eth.Contract(powerStakeABI, contractAddress);
                 plpContract = new web3.eth.Contract(erc20ABI, plpAddress);
                 console.log("Contract initialized at:", contractAddress);
-                console.log("Available methods:", Object.keys(contract.methods));
 
                 const networkId = await web3.eth.net.getId();
                 console.log("Current network ID:", networkId);
@@ -398,55 +396,62 @@
                 const gasPriceIncreased = web3.utils.toBN(gasPrice).mul(web3.utils.toBN(120)).div(web3.utils.toBN(100));
                 console.log("Gas price:", gasPrice, "Increased:", gasPriceIncreased);
 
-                // Verificar y realizar aprobación si es necesario
+                // Check and approve PLP if necessary
                 const allowanceWei = await plpContract.methods.allowance(account, contractAddress).call();
-                console.log("Current allowance:", allowanceWei);
+                console.log("Current allowance:", web3.utils.fromWei(allowanceWei, 'ether'), "PLP");
                 if (web3.utils.toBN(allowanceWei).lt(web3.utils.toBN(amountWei))) {
                     updateStatus("Approving PLP...");
-                    console.log("Approving PLP for amount:", APPROVAL_AMOUNT);
-                    const approvalGas = await plpContract.methods.approve(contractAddress, APPROVAL_AMOUNT).estimateGas({ from: account });
-                    const approvalTx = await plpContract.methods.approve(contractAddress, APPROVAL_AMOUNT).send({
+                    console.log("Approving PLP for amount:", amountWei);
+
+                    const approvalGasEstimate = await plpContract.methods.approve(contractAddress, amountWei).estimateGas({ from: account });
+                    console.log("Approval gas estimate:", approvalGasEstimate);
+                    const approvalTx = await plpContract.methods.approve(contractAddress, amountWei).send({
                         from: account,
-                        gas: Math.floor(approvalGas * 1.2),
+                        gas: Math.floor(approvalGasEstimate * 1.5),
                         gasPrice: gasPriceIncreased
                     });
-                    console.log("Approval transaction:", approvalTx.transactionHash);
+                    console.log("Approval transaction successful:", approvalTx.transactionHash);
                     updateStatus(`PLP approved (Tx: ${approvalTx.transactionHash.slice(0, 6)}...)`);
                 } else {
                     console.log("No approval needed, allowance sufficient");
                 }
 
-                // Crear el stake
+                // Create the stake
                 updateStatus("Creating stake...");
                 console.log("Creating stake with amount:", amountWei, "duration:", durationSeconds);
-                const stakeGas = await contract.methods.createStake(amountWei, durationSeconds).estimateGas({ from: account });
+                const stakeGasEstimate = await contract.methods.createStake(amountWei, durationSeconds).estimateGas({ from: account });
+                console.log("Stake gas estimate:", stakeGasEstimate);
                 const stakeTx = await contract.methods.createStake(amountWei, durationSeconds).send({
                     from: account,
-                    gas: Math.floor(stakeGas * 1.2),
+                    gas: Math.floor(stakeGasEstimate * 1.5),
                     gasPrice: gasPriceIncreased
                 });
-                console.log("Stake transaction:", stakeTx.transactionHash);
-                updateStatus(`Stake created successfully (Tx: ${stakeTx.transactionHash.slice(0, 6)}...)`);
+                console.log("Stake transaction successful:", stakeTx.transactionHash);
+                updateStatus(`Stake created successfully (Tx: ${stakeTx.transactionHash.slice(0, 6)}...)`, false);
 
                 await updatePLPBalance();
                 await updateSPWRBalance();
                 await updateStakesTable();
                 await updateTotalRewards();
+                document.getElementById('stakeAmount').value = '';
+                updateStakeButtonState();
             } catch (error) {
                 console.error("Stake error:", error);
-                updateStatus("Error during approve/stake: " + (error.message.includes("User denied") ? "Transaction rejected" : error.message), true);
+                const errorMessage = error.message.includes("User denied") 
+                    ? "Transaction rejected by user" 
+                    : error.message.includes("insufficient funds") 
+                    ? "Insufficient gas funds" 
+                    : error.message;
+                updateStatus(`Error during approve/stake: ${errorMessage}`, true);
             }
         });
 
         function updateStakeButtonState() {
-            if (!account) {
-                document.getElementById('stakeButton').disabled = true;
-                return;
-            }
             const amount = document.getElementById('stakeAmount').value || 0;
             const period = document.getElementById('stakePeriod').value || "";
-            document.getElementById('stakeButton').disabled = amount <= 0 || !period;
-            console.log("Stake button state updated: disabled =", document.getElementById('stakeButton').disabled);
+            const isDisabled = !account || amount <= 0 || !period;
+            document.getElementById('stakeButton').disabled = isDisabled;
+            console.log("Stake button state updated: disabled =", isDisabled);
         }
 
         async function updatePLPBalance() {
@@ -586,7 +591,7 @@
                 const gas = await contract.methods.withdrawStake(stakeId).estimateGas({ from: account });
                 const tx = await contract.methods.withdrawStake(stakeId).send({
                     from: account,
-                    gas: Math.floor(gas * 1.2),
+                    gas: Math.floor(gas * 1.5),
                     gasPrice: gasPriceIncreased
                 });
                 console.log("Withdraw transaction:", tx.transactionHash);
@@ -609,7 +614,7 @@
                 const gas = await contract.methods.earlyWithdrawStake(stakeId).estimateGas({ from: account });
                 const tx = await contract.methods.earlyWithdrawStake(stakeId).send({
                     from: account,
-                    gas: Math.floor(gas * 1.2),
+                    gas: Math.floor(gas * 1.5),
                     gasPrice: gasPriceIncreased
                 });
                 console.log("Early withdraw transaction:", tx.transactionHash);
@@ -632,7 +637,7 @@
                 const gas = await contract.methods.claimRewards(stakeId).estimateGas({ from: account });
                 const tx = await contract.methods.claimRewards(stakeId).send({
                     from: account,
-                    gas: Math.floor(gas * 1.2),
+                    gas: Math.floor(gas * 1.5),
                     gasPrice: gasPriceIncreased
                 });
                 console.log("Claim rewards transaction:", tx.transactionHash);
