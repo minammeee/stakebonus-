@@ -12,7 +12,7 @@
         .container { max-width: 1000px; margin: 0 auto; background: #1a1a1a; padding: 20px; border-radius: 15px; box-shadow: 0 0 20px rgba(255, 221, 0, 0.4); }
         h1 { text-align: center; color: #ffdd00; margin-bottom: 10px; font-weight: 700; font-size: 28px; letter-spacing: 2px; text-transform: uppercase; }
         h2 { color: #ffdd00; font-weight: 600; margin-top: 20px; font-size: 20px; text-transform: uppercase; }
-        button { padding: 10px 20px; background: #ffdd00; color: #000000; border: none; border-radius: 8px; cursor: pointer; margin: 10px 0; transition: all 0.3s ease; font-weight: 600; font-size: 14px; }
+        button { padding: 10px 20px; background: #ffdd00; color: #000000; border: none; border-radius: 8px; cursor: pointer; margin: 5px; transition: all 0.3s ease; font-weight: 600; font-size: 14px; }
         button:hover { background: #ffea4d; box-shadow: 0 0 15px rgba(255, 221, 0, 0.7); transform: translateY(-2px); }
         button:disabled { background: #666; cursor: not-allowed; box-shadow: none; transform: none; }
         .input-group { margin: 10px 0; display: flex; flex-direction: column; align-items: center; }
@@ -396,13 +396,11 @@
                 const gasPriceIncreased = web3.utils.toBN(gasPrice).mul(web3.utils.toBN(120)).div(web3.utils.toBN(100));
                 console.log("Gas price:", gasPrice, "Increased:", gasPriceIncreased);
 
-                // Check and approve PLP if necessary
                 const allowanceWei = await plpContract.methods.allowance(account, contractAddress).call();
                 console.log("Current allowance:", web3.utils.fromWei(allowanceWei, 'ether'), "PLP");
                 if (web3.utils.toBN(allowanceWei).lt(web3.utils.toBN(amountWei))) {
                     updateStatus("Approving PLP...");
                     console.log("Approving PLP for amount:", amountWei);
-
                     const approvalGasEstimate = await plpContract.methods.approve(contractAddress, amountWei).estimateGas({ from: account });
                     console.log("Approval gas estimate:", approvalGasEstimate);
                     const approvalTx = await plpContract.methods.approve(contractAddress, amountWei).send({
@@ -416,7 +414,6 @@
                     console.log("No approval needed, allowance sufficient");
                 }
 
-                // Create the stake
                 updateStatus("Creating stake...");
                 console.log("Creating stake with amount:", amountWei, "duration:", durationSeconds);
                 const stakeGasEstimate = await contract.methods.createStake(amountWei, durationSeconds).estimateGas({ from: account });
@@ -569,7 +566,10 @@
                             const timerElement = document.getElementById(`timer-${stakeId}`);
                             if (timerElement) {
                                 timerElement.innerText = formatTimeRemaining(remaining);
-                                if (remaining <= 0) clearInterval(timerInterval);
+                                if (remaining <= 0) {
+                                    clearInterval(timerInterval);
+                                    updateStakesTable(); // Refresh table when stake ends
+                                }
                             } else {
                                 clearInterval(timerInterval);
                             }
@@ -680,7 +680,7 @@
                 console.log("Yield estimate updated: APR =", apr, "Yield =", totalYield, "Reward =", reward);
             }).catch(error => {
                 console.error("APR fetch error:", error);
-                const apr = 50 + bonus; // Fallback
+                const apr = 50 + bonus;
                 const periodYears = period / 365;
                 const totalYield = (apr * periodYears).toFixed(2);
                 const reward = (amount * apr / 100 * periodYears).toFixed(4);
