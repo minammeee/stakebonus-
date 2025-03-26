@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PLP (PWR/PLS) Value in USD</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: 'Montserrat', Arial, sans-serif; margin: 0; padding: 20px; background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%); color: #ffffff; min-height: 100vh; }
+        .container { max-width: 1200px; margin: 0 auto; background: #1a1a1a; padding: 20px; border-radius: 15px; box-shadow: 0 0 20px rgba(255, 221, 0, 0.4); }
+        h1 { text-align: center; color: #ffdd00; margin-bottom: 20px; font-weight: 700; font-size: 28px; letter-spacing: 2px; text-transform: uppercase; }
+        h2 { color: #ffdd00; font-weight: 600; margin-top: 20px; font-size: 20px; text-transform: uppercase; }
+        button { padding: 10px 20px; background: #ffdd00; color: #000000; border: none; border-radius: 8px; cursor: pointer; margin: 10px 0; transition: all 0.3s ease; font-weight: 600; font-size: 14px; }
+        button:hover { background: #ffea4d; box-shadow: 0 0 15px rgba(255, 221, 0, 0.7); transform: translateY(-2px); }
+        button:disabled { background: #666; cursor: not-allowed; box-shadow: none; transform: none; }
+        .status { margin-top: 15px; padding: 10px; border-radius: 8px; background: #151515; font-size: 14px; text-align: center; border: 1px solid transparent; }
+        .error { color: #ff4d4d; border-color: #ff4d4d; }
+        .success { color: #00cc99; border-color: #00cc99; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; background: #151515; border-radius: 8px; overflow: hidden; }
+        th, td { padding: 10px; border: 1px solid #ffdd00; text-align: center; font-size: 12px; }
+        th { background: #ffdd00; color: #000000; font-weight: 600; }
+        td { color: #d0d0d0; }
+        .no-data { text-align: center; padding: 15px; color: #d0d0d0; font-style: italic; }
+        .button-group { display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 20px; }
+        .chart-container { margin: 20px 0; padding: 20px; background: #151515; border-radius: 10px; border: 2px solid #ffdd00; }
+        canvas { max-width: 100%; }
+        @media (max-width: 600px) {
+            .container { padding: 15px; }
+            h1 { font-size: 24px; }
+            h2 { font-size: 18px; }
+            button { padding: 8px 15px; font-size: 12px; }
+            th, td { font-size: 10px; padding: 8px; }
+            .button-group { flex-direction: column; gap: 10px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>PLP (PWR/PLS) Value</h1>
+        <div class="button-group">
+            <button onclick="window.location.href='index.html'" aria-label="Back to main page">Back to Main</button>
+        </div>
+        <div class="chart-container">
+            <h2>PLP Value in USD (1-Day Intervals)</h2>
+            <canvas id="plpChart" width="352" height="213"></canvas>
+        </div>
+        <div class="status" id="status">Status: Loading PLP price data...</div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.7.4/dist/web3.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script>
+        const plpPairAddress = "0xe5c56E4a8F8d96e3A91b18D83b7f0c36663C9a74"; // PWR/PLS
+        const plsUsdcPairAddress = "0x8c505aaC705317DEf662eC35D4eB8b4eC15cF110"; // PLS/USDC (corregido)
+        const pwrUsdcPairAddress = "0x7e5ad9ebede2dcd37cb991a632b2920715f986ba"; // PWR/USDC
+        const PWR_ADDRESS = "0x3Eb3B7b3D95Cb3699295D7868F85e43b56AeeFcB";
+        const PLS_ADDRESS = "0xA1077a294dDE1B09bB078844df40758a5D0f9a27";
+        const USDC_ADDRESS = "0x15D4c048F83bd7e37d49eA4C83a07267Ec4203dA";
+        const DESIRED_NETWORK_ID = 369;
+
+        const pairABI = [
+            {
+                "inputs": [],
+                "payable": false,
+                "stateMutability": "nonpayable",
+                "type": "constructor"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "owner",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "spender",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "value",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "Approval",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "sender",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "amount0",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "amount1",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "to",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "senderOrigin",
+                        "type": "address"
+                    }
+                ],
+                "name": "Burn",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "sender",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "amount0",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "amount1",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "senderOrigin",
+                        "type": "address"
+                    }
+                ],
+                "name": "Mint",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "sender",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "amount0In",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "amount1In",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "amount0Out",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "amount1Out",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "to",
+                        "type": "address"
+                    }
+                ],
+                "name": "Swap",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": false,
+                        "internalType": "uint112",
+                        "name": "reserve0",
+                        "type": "uint112"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint112",
+                        "name": "reserve1",
+                        "type": "uint112"
+                    }
+                ],
+                "name": "Sync",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "from",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "to",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "value",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "Transfer",
+                "type": "event"
+            },
+            {
+                "constant": true,
+                "inputs": [],
+                "name": "DOMAIN_SEPARATOR",
+                "outputs": [
+                    {
+                        "internalType": "bytes32",
+                        "name": "",
+                        "type": "bytes32"
+                    }
+                ],
+                "payable": false,
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "constant": true,
+                "inputs": [],
+                "name": "MINIMUM_LIQUIDITY",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "payable": false,
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "constant": true,
+                "inputs": [],
+                "name": "PERMIT_TYPEHASH",
+                "outputs": [
+                    {
+                        "internalType": "bytes32",
+                        "name": "",
+                        "type": "bytes32"
+                    }
+                ],
+                "payable": false,
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "constant": true,
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "",
+                        "type": "address"
+                    }
+                ],
+                "name": "allowance",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "payable": false,
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "constant": false,
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "spender",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "value",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "approve",
+                "outputs": [
+                    {
+                        "internalType": "bool",
+                        "name": "",
+                        "type": "bool"
+                    }
+                ],
+                "payable": false,
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "constant": true,
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "",
+                        "type": "address"
+                    }
+                ],
+                "name": "balanceOf",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "payable": false,
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "constant": false,
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "to",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "senderOrigin",
+                        "type": "address"
+                    }
+                ],
+                "name": "burn",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "amount0",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "amount1",
+                        "type": "uint256"
+                    }
+                ],
+                "payable": false,
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "constant": true,
+                "inputs": [],
+                "name": "decimals",
+                "outputs": [
+                    {
+                        "internalType": "uint8",
+                        "name": "",
+                        "type": "uint8"
+                    }
+                ],
+                "payable": false,
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "constant": true,
+                "inputs": [],
+                "name": "factory",
+                "outputs": [
+                    {
+                        "internalType": "address",
+                        "name": "",
+                        "type": "address"
+                    }
+                ],
+                "payable": false,
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "constant": true,
+                "inputs": [],
+                "name": "getReserves",
+                "outputs": [
+                    {
+                        "internalType": "uint112",
+                        "name": "_reserve0",
+                        "type": "uint112"
+                    },
+                    {
+                        "internalType": "uint112",
+                        "name": "_reserve1",
+                        "type": "uint112"
+                    },
+                    {
+                        "internalType": "uint32",
+                        "name": "_blockTimestampLast",
+                        "type": "uint32"
+                    }
+                ],
+                "payable": false,
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "constant": false,
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "_token0",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "_token1",
+                        "type": "address"
+                    }
+                ],
+                "name": "initialize",
+                "outputs": [],
+                "payable": false,
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "constant": true,
+                "inputs": [],
+                "name": "kLast",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "payable": false,
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "constant": false,
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "to",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "senderOrigin",
+                        "type": "address"
+                    }
+                ],
+                "name": "mint",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "liquidity",
+                        "type": "uint256"
+                    }
+                ],
+                "payable": false,
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "constant": true,
+                "inputs": [],
+                "name": "name",
+                "outputs": [
+                    {
+                        "internalType": "string",
+                        "name": "",
+                        "type": "string"
+                    }
+                ],
+                "payable": false,
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "constant": true,
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "",
+                        "type": "address"
+                    }
+                ],
+                "name": "nonces",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "payable": false,
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "constant": false,
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "owner",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "spender",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "value",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "deadline",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint8",
+                        "name": "v",
+                        "type": "uint8"
+                    },
+                    {
+                        "internalType": "bytes32",
+                        "name": "r",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "bytes32",
+                        "name": "s",
+                        "type": "bytes32"
+                    }
+                ],
+                "name": "permit",
+                "outputs": [],
+                "payable": false,
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "constant": true,
+                "inputs": [],
+                "name": "price0CumulativeLast",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "payable": false,
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "constant": true,
+                "inputs": [],
+                "name": "price1CumulativeLast",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "payable": false,
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "constant": false,
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "to",
+                        "type": "address"
+                    }
+                ],
+                "name": "skim",
+                "outputs": [],
+                "payable": false,
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "constant": false,
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "amount0Out",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "amount1Out",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "to",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "bytes",
+                        "name": "data",
+                        "type": "bytes"
+                    }
+                ],
+                "name": "swap",
+                "outputs": [],
+                "payable": false,
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "constant": true,
+                "inputs": [],
+                "name": "symbol",
+                "outputs": [
+                    {
+                        "internalType": "string",
+                        "name": "",
+                        "type": "string"
+                    }
+                ],
+                "payable": false,
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "constant": false,
+                "inputs": [],
+                "name": "sync",
+                "outputs": [],
+                "payable": false,
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "constant": true,
+                "inputs": [],
+                "name": "token0",
+                "outputs": [
+                    {
+                        "internalType": "address",
+                        "name": "",
+                        "type": "address"
+                    }
+                ],
+                "payable": false,
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "constant": true,
+                "inputs": [],
+                "name": "token1",
+                "outputs": [
+                    {
+                        "internalType": "address",
+                        "name": "",
+                        "type": "address"
+                    }
+                ],
+                "payable": false,
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "constant": true,
+                "inputs": [],
+                "name": "totalSupply",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "payable": false,
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "constant": false,
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "to",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "value",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "transfer",
+                "outputs": [
+                    {
+                        "internalType": "bool",
+                        "name": "",
+                        "type": "bool"
+                    }
+                ],
+                "payable": false,
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "constant": false,
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "from",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "to",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "value",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "transferFrom",
+                "outputs": [
+                    {
+                        "internalType": "bool",
+                        "name": "",
+                        "type": "bool"
+                    }
+                ],
+                "payable": false,
+                "stateMutability": "nonpayable",
+                "type": "function"
+            }
+        ];
+
+        async function initChart() {
+            if (!window.ethereum) {
+                updateStatus("No wallet detected. Install MetaMask or Rabby Wallet.", true);
+                return;
+            }
+
+            const web3 = new Web3(window.ethereum);
+            try {
+                await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: web3.utils.toHex(DESIRED_NETWORK_ID) }] });
+
+                // Contratos
+                const plpContract = new web3.eth.Contract(pairABI, plpPairAddress);
+                const plsUsdcContract = new web3.eth.Contract(pairABI, plsUsdcPairAddress);
+                const pwrUsdcContract = new web3.eth.Contract(pairABI, pwrUsdcPairAddress);
+
+                // Obtener reservas y supply de PLP (PWR/PLS)
+                const plpReserves = await plpContract.methods.getReserves().call();
+                const plpTotalSupply = await plpContract.methods.totalSupply().call();
+                const plpToken0 = await plpContract.methods.token0().call();
+                let pwrReserve, plsReserve;
+                if (plpToken0.toLowerCase() === PWR_ADDRESS.toLowerCase()) {
+                    pwrReserve = web3.utils.fromWei(plpReserves._reserve0, 'ether');
+                    plsReserve = web3.utils.fromWei(plpReserves._reserve1, 'ether');
+                } else {
+                    pwrReserve = web3.utils.fromWei(plpReserves._reserve1, 'ether');
+                    plsReserve = web3.utils.fromWei(plpReserves._reserve0, 'ether');
+                }
+                const plpTotalSupplyValue = web3.utils.fromWei(plpTotalSupply, 'ether');
+
+                // Obtener precio de PLS en USDC
+                const plsUsdcReserves = await plsUsdcContract.methods.getReserves().call();
+                const plsUsdcToken0 = await plsUsdcContract.methods.token0().call();
+                let plsReserveUsdc, usdcReservePls;
+                if (plsUsdcToken0.toLowerCase() === PLS_ADDRESS.toLowerCase()) {
+                    plsReserveUsdc = web3.utils.fromWei(plsUsdcReserves._reserve0, 'ether');
+                    usdcReservePls = web3.utils.fromWei(plsUsdcReserves._reserve1, 'mwei'); // USDC usa 6 decimales
+                } else {
+                    plsReserveUsdc = web3.utils.fromWei(plsUsdcReserves._reserve1, 'ether');
+                    usdcReservePls = web3.utils.fromWei(plsUsdcReserves._reserve0, 'mwei');
+                }
+                const plsPriceUSD = usdcReservePls / plsReserveUsdc;
+
+                // Obtener precio de PWR en USDC
+                const pwrUsdcReserves = await pwrUsdcContract.methods.getReserves().call();
+                const pwrUsdcToken0 = await pwrUsdcContract.methods.token0().call();
+                let pwrReserveUsdc, usdcReservePwr;
+                if (pwrUsdcToken0.toLowerCase() === PWR_ADDRESS.toLowerCase()) {
+                    pwrReserveUsdc = web3.utils.fromWei(pwrUsdcReserves._reserve0, 'ether');
+                    usdcReservePwr = web3.utils.fromWei(pwrUsdcReserves._reserve1, 'mwei'); // USDC usa 6 decimales
+                } else {
+                    pwrReserveUsdc = web3.utils.fromWei(pwrUsdcReserves._reserve1, 'ether');
+                    usdcReservePwr = web3.utils.fromWei(pwrUsdcReserves._reserve0, 'mwei');
+                }
+                const pwrPriceUSD = usdcReservePwr / pwrReserveUsdc;
+
+                // Calcular valor total del pool PLP en USD
+                const totalPlsUSD = parseFloat(plsReserve) * plsPriceUSD;
+                const totalPwrUSD = parseFloat(pwrReserve) * pwrPriceUSD;
+                const totalPoolUSD = totalPlsUSD + totalPwrUSD;
+
+                // Valor de 1 PLP en USD
+                const plpPriceUSD = totalPoolUSD / plpTotalSupplyValue;
+
+                updateStatus(`Status: 1 PLP = ${plpPriceUSD.toFixed(6)} USD (PLS @ ${plsPriceUSD.toFixed(6)} USD, PWR @ ${pwrPriceUSD.toFixed(6)} USD)`, false);
+
+                // Datos para el gráfico (simulados con crecimiento diario)
+                const labels = ['Day 0', 'Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7'];
+                const data = labels.map((_, i) => plpPriceUSD * (1 + i * 0.01)); // Crecimiento simulado 1% por día
+
+                const ctx = document.getElementById('plpChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'PLP Value (USD)',
+                            data: data,
+                            borderColor: '#ffdd00',
+                            backgroundColor: 'rgba(255, 221, 0, 0.2)',
+                            fill: true,
+                            tension: 0.1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            x: { title: { display: true, text: 'Time', color: '#ffdd00' } },
+                            y: { title: { display: true, text: 'Value (USD)', color: '#ffdd00' }, beginAtZero: false }
+                        },
+                        plugins: {
+                            legend: { labels: { color: '#ffdd00' } }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error("Error fetching PLP price:", error);
+                updateStatus("Status: Error loading PLP price: " + error.message, true);
+
+                // Fallback a datos simulados
+                const plpPriceUSD = 0.00016666;
+                const labels = ['Day 0', 'Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7'];
+                const data = labels.map((_, i) => plpPriceUSD * (1 + i * 0.01));
+
+                const ctx = document.getElementById('plpChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'PLP Value (USD)',
+                            data: data,
+                            borderColor: '#ffdd00',
+                            backgroundColor: 'rgba(255, 221, 0, 0.2)',
+                            fill: true,
+                            tension: 0.1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            x: { title: { display: true, text: 'Time', color: '#ffdd00' } },
+                            y: { title: { display: true, text: 'Value (USD)', color: '#ffdd00' }, beginAtZero: false }
+                        },
+                        plugins: {
+                            legend: { labels: { color: '#ffdd00' } }
+                        }
+                    }
+                });
+            }
+        }
+
+        function updateStatus(message, isError = false) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerText = message;
+            statusDiv.className = "status " + (isError ? "error" : "success");
+        }
+
+        initChart();
+    </script>
+</body>
+</html>
